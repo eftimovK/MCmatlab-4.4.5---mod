@@ -360,9 +360,14 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   int nL = (int)mxGetN(mxGetField(mediaProperties,0,"mua")); // Number of wavelengths (Lambdas)
   int nM = (int)mxGetM(mxGetField(mediaProperties,0,"mua")); // Number of media
 
+    // printf("\nNumber of media : %d\n", nM);
+    // printf("Number of wavelengths : %d\n\n", nL);
+
+  if (nL > 1) { printf("\nWARNING!...simulating over multiple wavelengths!\n-> meanPath and nPhotonsCollected would be given cumulatively!\n\n"); }
+
   double nPhotonsCumulative = 0;
   double nPhotonsCollectedCumulative = 0;
-  double meanPathFinal = 0;
+  double meanPathCumulative = 0;  // truly cumulative when nL>1
   double simulationTimeCumulative = 0;
   mwSize const *dimPtr = mxGetDimensions(mxGetPropertyShared(MatlabMC,0,"M"));
   int sourceType = S_PDF? -1: (int)*mxGetPr(mxGetPropertyShared(MatlabLS,0,"sourceType"));
@@ -746,8 +751,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
     double nPhotonsCollected = (double)O->nPhotonsCollected;
     nPhotonsCollectedCumulative += nPhotonsCollected;
     double meanPath = (double)O->meanPath;
-    meanPathFinal += meanPath;
-    meanPathFinal /= nPhotonsCollectedCumulative; // normalize mean of summed up optical paths
+    meanPathCumulative += meanPath;
     double simTime = (getMicroSeconds() - simulationTimeStart)/60000000.0; // In minutes
     simulationTimeCumulative += simTime;
     if(!silentMode) {
@@ -766,7 +770,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   mxSetProperty(MCout,0,"nPhotons",output);
   *mxGetPr(output) = nPhotonsCollectedCumulative;
   mxSetProperty(MCout,0,"nPhotonsCollected",output);
-  *mxGetPr(output) = meanPathFinal;
+  meanPathCumulative /= nPhotonsCollectedCumulative; // normalize mean of summed up optical paths
+  *mxGetPr(output) = meanPathCumulative;
   mxSetProperty(MCout,0,"meanPath",output);
   *mxGetPr(output) = nThreads;
   mxSetProperty(MCout,0,"nThreads",output);
