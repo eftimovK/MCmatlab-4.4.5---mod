@@ -83,6 +83,7 @@ struct photon { // Struct type for parameters describing the thread-specific cur
   unsigned long  reflections;
   unsigned long  interfaceTransitions;
   char           killed_escaped_collected;
+  bool wasDetected;
 };
 
 struct paths { // Struct type for storing the paths taken by the nExamplePaths first photons simulated by the master thread
@@ -525,6 +526,7 @@ void launchPhoton(struct photon * const P, struct source const * const B, struct
   P->weight = 1;
   P->recordElems = 0;
   P->killed_escaped_collected = 0; // Default state to killed
+  P->wasDetected = 0; // set bool before launching
   long launchAttempts = 0;
   do{
     if(B->S) { // If a 3D source distribution was defined
@@ -769,6 +771,7 @@ void formImage(struct photon * const P, struct geometry const * const G, struct 
                                          Yindex   *LC->res[0] +
                                          timeindex*LC->res[0]*LC->res[0]],P->weight);
               atomicAddWrapperULL(nPhotonsCollectedPtr,1);
+              P->wasDetected = 1;
             }
           }
         } else { // If the light collector is a fiber tip
@@ -779,6 +782,7 @@ void formImage(struct photon * const P, struct geometry const * const G, struct 
             if(depositionCriteriaMet(P,DC)) {
               atomicAddWrapper(&O->image[timeindex],P->weight);
               atomicAddWrapperULL(nPhotonsCollectedPtr,1);
+              P->wasDetected = 1;
             }
           }
         }
