@@ -83,7 +83,8 @@ struct photon { // Struct type for parameters describing the thread-specific cur
   unsigned long  reflections;
   unsigned long  interfaceTransitions;
   char           killed_escaped_collected;
-  bool wasDetected;
+  bool wasDetected; // bool to store if photon was detected while escaping 
+  FLOATORDBL opticalPath; // double to store optical path of the photon
 };
 
 struct paths { // Struct type for storing the paths taken by the nExamplePaths first photons simulated by the master thread
@@ -110,6 +111,7 @@ struct MATLABoutputs {
 struct outputs {
   unsigned long long nPhotons;
   unsigned long long nPhotonsCollected;
+  FLOATORDBL meanPath; // store mean optical path of photons
   FLOATORDBL * NFR;
   FLOATORDBL * image;
   FLOATORDBL * FF;
@@ -527,6 +529,7 @@ void launchPhoton(struct photon * const P, struct source const * const B, struct
   P->recordElems = 0;
   P->killed_escaped_collected = 0; // Default state to killed
   P->wasDetected = 0; // set bool before launching
+  P->opticalPath = 0; // set optical path before launching
   long launchAttempts = 0;
   do{
     if(B->S) { // If a 3D source distribution was defined
@@ -1026,6 +1029,8 @@ void propagatePhoton(struct photon * const P, struct geometry const * const G, s
   P->sameVoxel = true;
   
   FLOATORDBL s = min(P->stepLeft/P->mus,min(P->D[0],min(P->D[1],P->D[2])));
+
+  P->opticalPath += s; // increase total optical path by the current photon step
 
   P->stepLeft  = s==P->stepLeft/P->mus? 0: P->stepLeft - s*P->mus; // zero case is to avoid rounding errors
   P->time     += s*P->RI/C;

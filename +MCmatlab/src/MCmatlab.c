@@ -259,6 +259,10 @@ void threadInitAndLoop(struct source *B_global, struct geometry *G_global,
       if(P->alive) checkRoulette(P); // photon may die here
       if(P->alive) scatterPhoton(P,G,Pa,DC,D);
     }
+    if (P->wasDetected) 
+    {
+      atomicAddWrapper(&O_global->meanPath, P->opticalPath);
+    }
     if(DC->evaluateCriteriaAtEndOfLife && depositionCriteriaMet(P,DC)) {
       for(long i=0;i<P->recordElems;i++) atomicAddWrapper(&O->NFR[P->j_record[i]],P->weight*P->weight_record[i]);
     }
@@ -358,6 +362,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
 
   double nPhotonsCumulative = 0;
   double nPhotonsCollectedCumulative = 0;
+  double meanPathFinal = 0;
   double simulationTimeCumulative = 0;
   mwSize const *dimPtr = mxGetDimensions(mxGetPropertyShared(MatlabMC,0,"M"));
   int sourceType = S_PDF? -1: (int)*mxGetPr(mxGetPropertyShared(MatlabLS,0,"sourceType"));
@@ -509,6 +514,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   struct outputs O_var = {
     0, // nPhotons
     0, // nPhotonsCollected
+    0, // meanPath
     calcNFR? (FLOATORDBL *)calloc(G->n[0]*G->n[1]*G->n[2],sizeof(FLOATORDBL)): NULL,
     useLightCollector? (FLOATORDBL *)calloc(LC->res[0]*LC->res[0]*LC->res[1],sizeof(FLOATORDBL)): NULL,
     G->farFieldRes? (FLOATORDBL *)calloc(G->farFieldRes*G->farFieldRes,sizeof(FLOATORDBL)): NULL,
@@ -678,7 +684,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
       gpuErrchk(cudaDeviceSynchronize());
       // Progress indicator
       long long newtime = getMicroSeconds();
-      gpuErrchk(cudaMemcpy(O, O_dev, 2*sizeof(unsigned long long),cudaMemcpyDeviceToHost)); // Copy just nPhotons and nPhotonsCollected, the first 2*8 bytes of O
+      gpuErrchk(cudaMemcpy(O, O_dev, 2*sizeof(unsigned long long)+sizeof(double),cudaMemcpyDeviceToHost)); // Copy just nPhotons, nPhotonsCollected & meanPath, the first 3*8? bytes of O
       if(simulationTimed) {
         timeLeft = (long long)(simulationTimeRequested_ThisWavelength*60000000) - newtime + simulationTimeStart; // In microseconds
         pctProgress = (int)(100.0*(iL + 1.0 - timeLeft/(simulationTimeRequested_ThisWavelength*60000000.0))/nL);
@@ -739,6 +745,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
     nPhotonsCumulative += nPhotons;
     double nPhotonsCollected = (double)O->nPhotonsCollected;
     nPhotonsCollectedCumulative += nPhotonsCollected;
+    double meanPath = (double)O->meanPath;
+    meanPathFinal += meanPath;
+    meanPathFinal /= nPhotonsCollectedCumulative; // normalize mean of summed up optical paths
     double simTime = (getMicroSeconds() - simulationTimeStart)/60000000.0; // In minutes
     simulationTimeCumulative += simTime;
     if(!silentMode) {
@@ -757,6 +766,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   mxSetProperty(MCout,0,"nPhotons",output);
   *mxGetPr(output) = nPhotonsCollectedCumulative;
   mxSetProperty(MCout,0,"nPhotonsCollected",output);
+  *mxGetPr(output) = meanPathFinal;
+  mxSetProperty(MCout,0,"meanPath",output);
   *mxGetPr(output) = nThreads;
   mxSetProperty(MCout,0,"nThreads",output);
   *mxGetPr(output) = simulationTimeCumulative;

@@ -39,6 +39,7 @@ classdef monteCarloSimulation
     nPhotons = NaN
     nPhotonsCollected = NaN
     nThreads = NaN
+    meanPath = NaN % added mean optical path of Photons
 
     mediaProperties = NaN % Wavelength- and splitting-dependent
     CDFs = {} % Cumulative distribution functions for custom phase functions (not Henyey Greenstein)
